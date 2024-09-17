@@ -1,0 +1,81 @@
+# Visual Studio
+.vscode/
+.vs/
+*.csproj.user
+*.csproj.*
+*.suo
+*.user
+*.userosscache
+*.suo
+*.dbmdl
+*.bak
+*.backup
+*.swp
+*.tmp
+*.log
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]eleases/
+[Rr]eleasesPublic/
+[Aa]ssets/
+[Ll]ogs/
+[Ll]og/
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+*.nupkg
+*.nuget/
+*.nuget/packages/
+
+# Rider
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Other files
+*.apk
+*.jar
+*.keystore
+*.pdb
+*.dll
+*.exe
+*.cache
+*.temp
+*.suo
+*.user
+*.log
+*.vsix
+*.vscode
+
+# Optional: if you're using Azure DevOps or similar
+*.tfstate
+*.tfstate.*
+*.terraform/
+*.env
+
+# Exclude local environment settings and configuration files
+appsettings.Development.json
+appsettings.json
+local.settings.json
+
+# Exclude database files and backups
+*.mdf
+*.ldf
+*.sdf
+*.sqlite
+*.sql
+*.sqlite3
+*.bak
+*.db
+
+# Exclude generated code files
+Generated\ Files/
+
+# Exclude project assets
+obj/project.assets.json
