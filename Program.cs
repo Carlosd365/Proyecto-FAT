@@ -21,7 +21,7 @@ public class Program
             Console.WriteLine("6. Recuperar archivo");
             Console.WriteLine("7. Salir");
             Console.Write("Selecciona una opción: ");
-
+            
             string opcion = Console.ReadLine()!;
             switch (opcion)
             {
@@ -77,23 +77,16 @@ public class ArchivoManager
     {
         string directorioRaiz = ObtenerRutaDirectorio();
         Console.Write("Introduce el nombre del archivo: ");
-        string nombreArchivo = Console.ReadLine()?.Trim() ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(nombreArchivo))
-        {
-            Console.WriteLine("El nombre del archivo no puede estar vacío.");
-            return;
-        }
-
+        string nombreArchivo = Console.ReadLine()!;
         Console.WriteLine("Introduce los datos para el archivo y presiona Enter para terminar:");
         string datos = LeerDatosDesdeConsolaSimple();
 
         var fatTable = new FatTable
         {
             NombreArchivo = nombreArchivo,
-            RutaArchivo = Path.Combine(directorioRaiz, $"{nombreArchivo}_datos.json"),
+            RutaArchivo = $"{directorioRaiz}/{nombreArchivo}_datos.json",
             PapeleraReciclaje = false,
-            CantidadCaracteres = datos.Length,
+            CantidadPalabras = datos.Split(' ').Length,
             FechaCreacion = DateTime.Now,
             FechaModificacion = DateTime.Now
         };
@@ -129,7 +122,7 @@ public class ArchivoManager
                 var fatTable = CargarTablaFat(rutaFatTable);
                 if (!fatTable.PapeleraReciclaje)
                 {
-                    Console.WriteLine($"{i++}. {fatTable.NombreArchivo} - {fatTable.CantidadCaracteres} caracteres - Creación: {fatTable.FechaCreacion} - Modificación: {fatTable.FechaModificacion}");
+                    Console.WriteLine($"{i++}. {fatTable.NombreArchivo} - {fatTable.CantidadPalabras} palabras - Creación: {fatTable.FechaCreacion} - Modificación: {fatTable.FechaModificacion}");
                 }
             }
         }
@@ -145,23 +138,16 @@ public class ArchivoManager
         ListarArchivos();
         string directorioRaiz = ObtenerRutaDirectorio();
         Console.Write("Selecciona el número del archivo a abrir: ");
-        string inputIndex = Console.ReadLine()!;
-        if (!int.TryParse(inputIndex, out int index) || index < 1)
-        {
-            Console.WriteLine("Selección no válida.");
-            return;
-        }
+        int index = int.Parse(Console.ReadLine()!) - 1;
 
         var archivos = Directory.GetFiles(directorioRaiz, "*_datos.json");
-        index--; // Ajustar el índice porque la lista está basada en cero
-
         if (index >= 0 && index < archivos.Length)
         {
             var archivo = archivos[index];
             var rutaFatTable = archivo.Replace("_datos.json", "_fat.json");
             var fatTable = CargarTablaFat(rutaFatTable);
             Console.WriteLine($"Nombre: {fatTable.NombreArchivo}");
-            Console.WriteLine($"Tamaño total: {fatTable.CantidadCaracteres} caracteres");
+            Console.WriteLine($"Cantidad total de palabras: {fatTable.CantidadPalabras}");
             Console.WriteLine($"Fecha de creación: {fatTable.FechaCreacion}");
             Console.WriteLine($"Fecha de modificación: {fatTable.FechaModificacion}");
             Console.WriteLine("Contenido:");
@@ -175,79 +161,48 @@ public class ArchivoManager
 
     public void ModificarArchivo()
     {
-        AbrirArchivo(); // Muestra la lista de archivos y permite seleccionar uno
+        AbrirArchivo();
         string directorioRaiz = ObtenerRutaDirectorio();
-
-        Console.Write("Introduce el nombre del archivo a modificar (sin extensión): ");
-        string nombreArchivo = Console.ReadLine()?.Trim() ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(nombreArchivo))
-        {
-            Console.WriteLine("El nombre del archivo no puede estar vacío.");
-            return;
-        }
-
-        string rutaArchivoDatos = Path.Combine(directorioRaiz, $"{nombreArchivo}_datos.json");
-        if (!File.Exists(rutaArchivoDatos))
-        {
-            Console.WriteLine("El archivo no existe.");
-            return;
-        }
-
         Console.WriteLine("Introduce el nuevo contenido (presiona Enter para terminar):");
         string nuevoContenido = LeerDatosDesdeConsolaSimple();
 
-        var fatTable = CargarTablaFat(Path.Combine(directorioRaiz, $"{nombreArchivo}_fat.json"));
-        if (fatTable.PapeleraReciclaje)
-        {
-            Console.WriteLine("El archivo está en la papelera de reciclaje y no puede ser modificado.");
-            return;
-        }
-
+        string rutaArchivoDatos = ObtenerRutaArchivoDatos();
+        var fatTable = CargarTablaFat(rutaArchivoDatos.Replace("_datos.json", "_fat.json"));
         var nuevoFatTable = new FatTable
         {
             NombreArchivo = fatTable.NombreArchivo,
-            RutaArchivo = rutaArchivoDatos,
+            RutaArchivo = $"{directorioRaiz}/{fatTable.NombreArchivo}_datos.json",
             PapeleraReciclaje = false,
-            CantidadCaracteres = nuevoContenido.Length,
+            CantidadPalabras = nuevoContenido.Split(' ').Length,
             FechaCreacion = fatTable.FechaCreacion,
             FechaModificacion = DateTime.Now
         };
 
         Console.Write($"¿Deseas guardar los cambios en el archivo '{fatTable.NombreArchivo}'? (s/n): ");
-        string confirmacion = Console.ReadLine()?.Trim().ToLower() ?? string.Empty;
-        if (confirmacion != "s")
+        if (Console.ReadLine()!.ToLower() == "s")
+        {
+            // Eliminar los fragmentos antiguos
+            EliminarArchivosViejos(fatTable.RutaArchivo);
+
+            // Dividir y guardar los nuevos datos
+            DividirYGuardarDatos(nuevoContenido, nuevoFatTable.RutaArchivo);
+            GuardarTablaFat(nuevoFatTable);
+            Console.WriteLine($"Archivo '{fatTable.NombreArchivo}' modificado exitosamente.");
+        }
+        else
         {
             Console.WriteLine("Modificación cancelada.");
-            return;
         }
-
-        // Eliminar todos los fragmentos viejos
-        EliminarArchivosViejos(fatTable.RutaArchivo);
-
-        // Guardar los nuevos datos
-        DividirYGuardarDatos(nuevoContenido, nuevoFatTable.RutaArchivo);
-        GuardarTablaFat(nuevoFatTable);
-
-        Console.WriteLine($"Archivo '{fatTable.NombreArchivo}' modificado exitosamente.");
     }
-
 
     public void EliminarArchivo()
     {
         ListarArchivos();
         string directorioRaiz = ObtenerRutaDirectorio();
         Console.Write("Selecciona el número del archivo a eliminar: ");
-        string inputIndex = Console.ReadLine()!;
-        if (!int.TryParse(inputIndex, out int index) || index < 1)
-        {
-            Console.WriteLine("Selección no válida.");
-            return;
-        }
+        int index = int.Parse(Console.ReadLine()!) - 1;
 
         var archivos = Directory.GetFiles(directorioRaiz, "*_datos.json");
-        index--; // Ajustar el índice porque la lista está basada en cero
-
         if (index >= 0 && index < archivos.Length)
         {
             var archivoDatos = archivos[index];
@@ -255,7 +210,7 @@ public class ArchivoManager
             var fatTable = CargarTablaFat(archivoFat);
 
             Console.WriteLine($"Nombre: {fatTable.NombreArchivo}");
-            Console.WriteLine($"Tamaño: {fatTable.CantidadCaracteres} caracteres");
+            Console.WriteLine($"Cantidad de palabras: {fatTable.CantidadPalabras}");
             Console.Write($"¿Deseas eliminar el archivo '{fatTable.NombreArchivo}'? (s/n): ");
             if (Console.ReadLine()!.ToLower() == "s")
             {
@@ -299,36 +254,36 @@ public class ArchivoManager
 
         Console.WriteLine("Archivos en la papelera de reciclaje:");
         int i = 1;
-        foreach (var archivo in archivosEliminados)
+        foreach (var archivoFat in archivosEliminados)
         {
-            var fatTable = CargarTablaFat(archivo);
-            Console.WriteLine($"{i++}. {fatTable.NombreArchivo} - Eliminado: {fatTable.FechaEliminacion}");
+            var fatTable = CargarTablaFat(archivoFat);
+            Console.WriteLine($"{i++}. {fatTable.NombreArchivo} - Fecha de eliminación: {fatTable.FechaEliminacion}");
         }
 
         Console.Write("Selecciona el número del archivo a recuperar: ");
-        string inputIndex = Console.ReadLine()!;
-        if (!int.TryParse(inputIndex, out int index) || index < 1)
-        {
-            Console.WriteLine("Selección no válida.");
-            return;
-        }
+        int index = int.Parse(Console.ReadLine()!) - 1;
 
-        index--; // Ajustar el índice porque la lista está basada en cero
         if (index >= 0 && index < archivosEliminados.Count)
         {
             var archivoFat = archivosEliminados[index];
             var fatTable = CargarTablaFat(archivoFat);
+
             if (File.Exists(fatTable.RutaArchivoBackup))
             {
+                // Restaurar archivo desde respaldo
                 File.Copy(fatTable.RutaArchivoBackup, fatTable.RutaArchivo, true);
                 fatTable.PapeleraReciclaje = false;
-                fatTable.FechaEliminacion = null;
+                fatTable.FechaEliminacion = null; // Limpiar la fecha de eliminación
                 GuardarTablaFat(fatTable);
+
+                // Eliminar el archivo de respaldo después de restaurar
+                File.Delete(fatTable.RutaArchivoBackup);
+
                 Console.WriteLine($"Archivo '{fatTable.NombreArchivo}' recuperado exitosamente.");
             }
             else
             {
-                Console.WriteLine("El archivo de respaldo no existe.");
+                Console.WriteLine("No se encontró el archivo de respaldo.");
             }
         }
         else
@@ -339,69 +294,155 @@ public class ArchivoManager
 
     private string LeerDatosDesdeConsolaSimple()
     {
-        string contenido = "";
-        string linea;
-        while ((linea = Console.ReadLine()!) != null && linea != "")
+        var palabras = new List<string>();
+        string palabra;
+        while ((palabra = Console.ReadLine()!) != string.Empty)
         {
-            contenido += linea + Environment.NewLine;
+            palabras.Add(palabra);
         }
-        return contenido.TrimEnd(Environment.NewLine.ToCharArray());
-    }
-
-    private void EliminarArchivosViejos(string rutaArchivo)
-    {
-        int fragmento = 0;
-        while (File.Exists($"{rutaArchivo}_{fragmento}.json"))
-        {
-            File.Delete($"{rutaArchivo}_{fragmento}.json");
-            fragmento++;
-        }
+        return string.Join(" ", palabras);
     }
 
     private void DividirYGuardarDatos(string datos, string rutaArchivo)
     {
-        int fragmentoSize = 1024; // Tamaño del fragmento en bytes
-        int fragmentoCount = (int)Math.Ceiling((double)datos.Length / fragmentoSize);
+        string directorioRaiz = ObtenerRutaDirectorio();
+        int maxPalabras = 20;
+        string archivoActual = rutaArchivo;
+        var palabras = datos.Split(' ');
 
-        for (int i = 0; i < fragmentoCount; i++)
+        for (int i = 0; i < palabras.Length; i += maxPalabras)
         {
-            string fragmento = datos.Substring(i * fragmentoSize, Math.Min(fragmentoSize, datos.Length - i * fragmentoSize));
-            File.WriteAllText($"{rutaArchivo}_{i}.json", fragmento);
+            var fragmento = string.Join(" ", palabras.Skip(i).Take(maxPalabras));
+            bool esUltimo = i + maxPalabras >= palabras.Length;
+            string siguienteArchivo = esUltimo ? null : $"{Path.GetFileNameWithoutExtension(rutaArchivo)}_{i / maxPalabras + 1}.json";
+
+            var fileData = new FileData
+            {
+                Datos = fragmento,
+                SiguienteArchivo = siguienteArchivo,
+                EOF = esUltimo
+            };
+
+            File.WriteAllText(archivoActual, JsonSerializer.Serialize(fileData));
+            if (!esUltimo)
+            {
+                archivoActual = Path.Combine(directorioRaiz, siguienteArchivo);
+            }
         }
     }
 
     private string LeerContenidoArchivo(string rutaArchivo)
     {
-        var fragmentos = Directory.GetFiles(Path.GetDirectoryName(rutaArchivo)!, $"{Path.GetFileNameWithoutExtension(rutaArchivo)}_*.json");
-        return fragmentos.OrderBy(f => int.Parse(Path.GetFileNameWithoutExtension(f).Split('_').Last())).Aggregate("", (current, fragmento) => current + File.ReadAllText(fragmento));
+        var contenido = new List<string>();
+        string archivoActual = rutaArchivo;
+        
+        while (archivoActual != null)
+        {
+            
+            if (File.Exists(archivoActual))
+            {
+                var fileData = JsonSerializer.Deserialize<FileData>(File.ReadAllText(archivoActual));
+                if (fileData != null)
+                {
+                    contenido.Add(fileData.Datos);
+                    archivoActual = fileData.SiguienteArchivo != null
+                        ? Path.Combine(Path.GetDirectoryName(rutaArchivo)!, fileData.SiguienteArchivo)
+                        : null;
+                }
+                else
+                {
+                    Console.WriteLine($"Advertencia: El contenido del archivo '{archivoActual}' está vacío o dañado.");
+                    archivoActual = null; // Terminar el bucle
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Advertencia: No se encontró el archivo '{archivoActual}'.");
+                archivoActual = null; // Terminar el bucle
+            }
+        }
+        
+        return string.Join(" ", contenido);
+    }
+
+
+    private void EliminarArchivosViejos(string rutaArchivoDatos)
+    {
+        string directorioRaiz = Path.GetDirectoryName(rutaArchivoDatos)!;
+        string archivoBase = Path.GetFileNameWithoutExtension(rutaArchivoDatos);
+        
+        // Obtener todos los archivos en el directorio
+        var archivosEnDirectorio = Directory.GetFiles(directorioRaiz, "*.json");
+
+        foreach (var archivo in archivosEnDirectorio)
+        {
+            // Verificar si el archivo actual es un fragmento asociado al archivo que estamos modificando
+            if (EsArchivoFragmento(archivo, archivoBase))
+            {
+                if (File.Exists(archivo))
+                {
+                    File.Delete(archivo);
+                }
+            }
+        }
+    }
+
+    // Función para verificar si un archivo es un fragmento del archivo base
+    private bool EsArchivoFragmento(string archivo, string archivoBase)
+    {
+        // Verifica si el nombre del archivo contiene el nombre base y un sufijo de fragmento
+        return archivo.Contains(archivoBase) && !archivo.EndsWith("_fat.json");
     }
 
     private void GuardarTablaFat(FatTable fatTable)
     {
-        string rutaFatTable = fatTable.RutaArchivo.Replace("_datos.json", "_fat.json");
-        File.WriteAllText(rutaFatTable, JsonSerializer.Serialize(fatTable));
+        string rutaFat = fatTable.RutaArchivo.Replace("_datos.json", "_fat.json");
+        File.WriteAllText(rutaFat, JsonSerializer.Serialize(fatTable));
     }
 
-    private FatTable CargarTablaFat(string rutaFatTable)
+    private FatTable CargarTablaFat(string rutaFat)
     {
-        if (!File.Exists(rutaFatTable))
+        if (File.Exists(rutaFat))
         {
-            throw new FileNotFoundException("El archivo de la tabla FAT no se encontró.", rutaFatTable);
+            return JsonSerializer.Deserialize<FatTable>(File.ReadAllText(rutaFat))!;
         }
-
-        return JsonSerializer.Deserialize<FatTable>(File.ReadAllText(rutaFatTable)) ?? throw new Exception("Error al cargar la tabla FAT.");
+        else
+        {
+            throw new FileNotFoundException("La tabla FAT no existe.");
+        }
     }
-
     private string ObtenerRutaArchivoDatos()
     {
-        Console.Write("Introduce el nombre del archivo (sin extensión): ");
-        string nombreArchivo = Console.ReadLine()?.Trim() ?? string.Empty;
-
+        // Obtén el directorio raíz donde se guardarán los archivos
+        string directorioRaiz = ObtenerRutaDirectorio();
+        
+        // Asegúrate de que el directorio raíz existe
+        if (!Directory.Exists(directorioRaiz))
+        {
+            Console.WriteLine($"Error: El directorio '{directorioRaiz}' no existe.");
+            return string.Empty;
+        }
+        
+        // Solicita el nombre del archivo al usuario
+        Console.Write("Introduce el nombre del archivo de datos: ");
+        string nombreArchivo = Console.ReadLine()!;
+        
+        // Verifica si el nombre del archivo es válido
         if (string.IsNullOrWhiteSpace(nombreArchivo))
         {
-            throw new ArgumentException("El nombre del archivo no puede estar vacío.");
+            Console.WriteLine("Error: El nombre del archivo no puede estar vacío.");
+            return string.Empty;
         }
-
-        return Path.Combine(ObtenerRutaDirectorio(), $"{nombreArchivo}_datos.json");
+        
+        // Construye la ruta completa para el archivo de datos
+        string rutaArchivo = Path.Combine(directorioRaiz, $"{nombreArchivo}_datos.json");
+        
+        // Opcionalmente, verifica si el archivo existe para informar al usuario
+        if (!File.Exists(rutaArchivo))
+        {
+            Console.WriteLine($"Nota: El archivo '{rutaArchivo}' no existe.");
+        }
+        
+        return rutaArchivo;
     }
 }
